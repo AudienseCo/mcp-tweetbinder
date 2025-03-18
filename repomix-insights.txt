@@ -1,0 +1,1267 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: src/promts.ts, src/categories.ts, src/baselines.ts, src/reportSummary.ts, src/__tests__/reportSummary.test.ts, LICENSE.md, package-lock.json
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+
+Additional Info:
+----------------
+
+================================================================
+Directory Structure
+================================================================
+src/
+  audienseClient.ts
+  config.ts
+  index.ts
+  test-server.ts
+  types.ts
+.gitignore
+Dockerfile
+jest.config.js
+package.json
+README.md
+smithery.yaml
+tsconfig.json
+
+================================================================
+Files
+================================================================
+
+================
+File: src/audienseClient.ts
+================
+import fetch from "node-fetch";
+import base64 from "base-64";
+import { AuthResponse, IntelligenceReportsResponse, ReportInfoResponse } from "./types.js";
+
+const { encode: base64Encode } = base64;
+
+import { AUDIENSE_API_BASE, CLIENT_ID, CLIENT_SECRET, TWITTER_BEARER_TOKEN, TWITTER_API_BASE } from "./config.js";
+
+let accessToken: string | null = null;
+let tokenExpiration: number | null = null;
+
+/**
+ * Retrieves an OAuth2 access token using client credentials.
+ * Caches the token until it expires.
+ */
+async function getAccessToken(): Promise<string | null> {
+    if (accessToken && tokenExpiration && Date.now() < tokenExpiration) {
+        return accessToken;
+    }
+
+    const authHeader = `Basic ${Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64")}`;
+
+    try {
+        const response = await fetch(`${AUDIENSE_API_BASE}/login/token`, {
+            method: "POST",
+            headers: {
+                Authorization: authHeader,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ grant_type: "client_credentials" }).toString(),
+        });
+
+        if (!response.ok) {
+            console.error("Authentication error:", await response.text());
+            throw new Error(`Authentication error: ${response.status}`);
+        }
+
+        const data = (await response.json()) as AuthResponse;
+        accessToken = data.access_token;
+        tokenExpiration = Date.now() + data.expires_in * 1000;
+
+        return accessToken;
+    } catch (error) {
+        console.error("Error retrieving access token:", error);
+        return null;
+    }
+}
+
+/**
+ * Makes an authenticated request to the Audiense API.
+ * Automatically retrieves and refreshes the access token if needed.
+ */
+async function makeAudienseRequest<T>(endpoint: string): Promise<T | null> {
+    const token = await getAccessToken();
+    if (!token) {
+        console.error("Failed to retrieve access token.");
+        return null;
+    }
+
+    const url = `${AUDIENSE_API_BASE}${endpoint}`;
+
+    try {
+        const response = await fetch(url, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+            },
+        });
+
+        if (!response.ok) {
+            console.error(`Request error ${response.status} for ${endpoint}:`, await response.text());
+            return null;
+        }
+
+        return (await response.json()) as T;
+    } catch (error) {
+        console.error(`Request error for ${endpoint}:`, error);
+        return null;
+    }
+}
+
+/**
+ * Retrieves the list of intelligence reports.
+ */
+export async function getIntelligenceReports(): Promise<IntelligenceReportsResponse | null> {
+    return makeAudienseRequest<IntelligenceReportsResponse>("/reports/intelligence");
+}
+
+/**
+ * Retrieves details of a specific intelligence report.
+ */
+export async function getReportInfo(report_id: string): Promise<ReportInfoResponse | null> {
+    return makeAudienseRequest<ReportInfoResponse>(`/reports/intelligence/${report_id}`);
+}
+
+/**
+ * Retrieves audience insights for a given audience_insights_id.
+ * If `insights` is provided, filters by those insights.
+ */
+export async function getAudienceInsights(
+    audience_insights_id: string,
+    insights?: string[]
+): Promise<{ insights: { name: string; values: { key: string; value: string }[] }[] } | null> {
+    const queryParams = insights ? `?insights=${insights.join(",")}` : "";
+    return makeAudienseRequest<{ insights: { name: string; values: { key: string; value: string }[] }[] }>(
+        `/audience_insights/${audience_insights_id}${queryParams}`
+    );
+}
+
+
+type TwitterUser = {
+    id: string;
+    description?: string;
+    is_identity_verified?: boolean;
+    location?: string;
+    name?: string;
+    parody?: boolean;
+    profile_image_url?: string;
+    protected?: boolean;
+    public_metrics?: Record<string, number>;
+    url?: string;
+    username?: string;
+    verified?: boolean;
+    verified_followers_count?: number;
+    verified_type?: string;
+};
+
+type TwitterAPIResponse = {
+    data?: TwitterUser[];
+};
+
+/**
+ * Fetches Twitter user details for up to 100 user IDs.
+ */
+async function fetchTwitterUserDetails(userIds: string[]): Promise<Record<string, TwitterUser>> {
+    if (!TWITTER_BEARER_TOKEN) {
+        console.error("Missing Twitter/X Bearer Token. Skipping Twitter/X enrichment.");
+        return {};
+    }
+
+    const idsParam = userIds.join(",");
+    const userFields = [
+        "description",
+        "is_identity_verified",
+        "location",
+        "name",
+        "parody",
+        "profile_image_url",
+        "protected",
+        "public_metrics",
+        "url",
+        "username",
+        "verified",
+        "verified_followers_count",
+        "verified_type"
+    ].join(",");
+
+    const url = `${TWITTER_API_BASE}/users?ids=${idsParam}&user.fields=${userFields}`;
+
+    try {
+        const response = await fetch(url, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${TWITTER_BEARER_TOKEN}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        if (!response.ok) {
+            console.error("Twitter API error:", await response.text());
+            return {};
+        }
+
+        const data = (await response.json()) as TwitterAPIResponse;
+
+        if (!data.data) return {};
+
+        return Object.fromEntries(data.data.map((user) => [user.id, user]));
+    } catch (error) {
+        console.error("Error fetching Twitter user details:", error);
+        return {};
+    }
+}
+
+/**
+ * Compares the influencers of an audience with those of a baseline, enriched with Twitter user details.
+ */
+export async function compareAudienceInfluencers(
+    audience_influencers_id: string,
+    baseline_audience_influencers_id: string,
+    cursor?: number,
+    count?: number,
+    bio_keyword?: string,
+    entity_type?: "person" | "brand",
+    followers_min?: number,
+    followers_max?: number,
+    categories?: string[],
+    countries?: string[]
+): Promise<{ cursor: { next: number; prev: number }; influencers: any[] } | null> {
+    const queryParams = new URLSearchParams();
+
+    if (cursor !== undefined) queryParams.append("cursor", cursor.toString());
+    if (count !== undefined) queryParams.append("count", count.toString());
+    if (bio_keyword) queryParams.append("bio_keyword", bio_keyword);
+    if (entity_type) queryParams.append("entity_type", entity_type);
+    if (followers_min !== undefined) queryParams.append("followers_min", followers_min.toString());
+    if (followers_max !== undefined) queryParams.append("followers_max", followers_max.toString());
+    if (categories && categories.length > 0) queryParams.append("categories", categories.join(","));
+    if (countries && countries.length > 0) queryParams.append("countries", countries.join(","));
+
+    const endpoint = `/audience_influencers/${audience_influencers_id}/compared_to/${baseline_audience_influencers_id}?${queryParams.toString()}`;
+
+    const data = await makeAudienseRequest<{ cursor: { next: number; prev: number }; influencers: { id: string; affinity: number; baseline_affinity: number; uniqueness: number }[] }>(endpoint);
+
+    if (!data || !data.influencers.length) {
+        return data;
+    }
+
+    // Get the first 100 influencers for enrichment
+    const influencerIds = data.influencers.slice(0, 100).map((influencer) => influencer.id);
+    const twitterData = await fetchTwitterUserDetails(influencerIds);
+
+    // Merge Twitter details into influencer data
+    const enrichedInfluencers = data.influencers.map((influencer) => ({
+        ...influencer,
+        twitter: twitterData[influencer.id] || null, // Add Twitter data if available
+    }));
+
+    return {
+        cursor: data.cursor,
+        influencers: enrichedInfluencers,
+    };
+}
+
+/**
+ * Retrieves the relevant content that an audience engages with.
+ */
+export async function getAudienceContent(audience_content_id: string): Promise<{
+    createdAt: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    likedContent: any;
+    sharedContent: any;
+    influentialContent: any;
+} | null> {
+    return makeAudienseRequest<{
+        createdAt: string;
+        startDate: string;
+        endDate: string;
+        status: string;
+        likedContent: any;
+        sharedContent: any;
+        influentialContent: any;
+    }>(`/audience_content/${audience_content_id}`);
+}
+
+================
+File: src/config.ts
+================
+export const AUDIENSE_API_BASE = "https://api.audiense.com/v1";
+
+export const CLIENT_ID = process.env.AUDIENSE_CLIENT_ID || "";
+export const CLIENT_SECRET = process.env.AUDIENSE_CLIENT_SECRET || "";
+
+if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.error("Missing Audiense API credentials. Check your environment variables.");
+}
+
+export const TWITTER_BEARER_TOKEN = process.env.TWITTER_BEARER_TOKEN || "";
+export const TWITTER_API_BASE = "https://api.twitter.com/2";
+
+================
+File: src/index.ts
+================
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { getIntelligenceReports, getReportInfo, getAudienceInsights, compareAudienceInfluencers, getAudienceContent } from "./audienseClient.js";
+import { BASELINES } from "./baselines.js";
+import { CATEGORIES } from "./categories.js";
+import { DEMO_PROMPT, DEMO_PROMPT2, SEGMENT_MATCHING_PROMPT } from "./promts.js";
+import { generateReportSummary } from "./reportSummary.js";
+
+// MCP Server instance
+const server = new McpServer({
+    name: "audiense-insights",
+    version: "1.0.0",
+});
+
+/**
+ * MCP Tool: Fetches a list of intelligence reports for the authenticated user.
+ */
+server.tool(
+    "get-reports",
+    "Retrieves the list of Audiense insights reports owned by the authenticated user.",
+    {},
+    async () => {
+        const data = await getIntelligenceReports();
+
+        if (!data) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Failed to retrieve intelligence reports.",
+                    },
+                ],
+            };
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2)
+                },
+            ],
+        };
+    }
+);
+
+/**
+ * MCP Tool: Fetches details of a specific intelligence report.
+ */
+server.tool(
+    "get-report-info",
+    "Retrieves detailed information about a specific intelligence report, including its status, segmentation type, audience size, segments, and access links.",
+    {
+        report_id: z.string().describe("The ID of the intelligence report."),
+    },
+    async ({ report_id }) => {
+        const data = await getReportInfo(report_id);
+
+        if (!data) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Failed to retrieve report info for ID: ${report_id}.`,
+                    },
+                ],
+            };
+        }
+
+        if (data.status === "pending") {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Report ${report_id} is still processing. Try again later.`,
+                    },
+                ],
+            };
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2)
+                }
+            ]
+        };
+    }
+);
+
+/**
+ * MCP Tool: Fetches aggregated insights for a given audience ID.
+ */
+server.tool(
+    "get-audience-insights",
+    `Retrieves aggregated insights for a given audience ID, providing statistical distributions across various attributes.
+    Available insights include demographics (e.g., gender, age, country), behavioral traits (e.g., active hours, platform usage), psychographics (e.g., personality traits, interests), and socioeconomic factors (e.g., income, education status).`,
+    {
+        audience_insights_id: z.string().describe("The ID of the audience insights."),
+        insights: z.array(z.string()).optional().describe("Optional list of insight names to filter."),
+    },
+    async ({ audience_insights_id, insights }) => {
+        const data = await getAudienceInsights(audience_insights_id, insights);
+
+        if (!data || !data.insights.length) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `No insights found for audience ${audience_insights_id}.`,
+                    },
+                ],
+            };
+        }
+
+        const insightsText = data.insights
+            .map(
+                (insight) =>
+                    `**${insight.name}**:\n${insight.values
+                        .map((val) => `- ${val.key}: ${val.value}%`)
+                        .join("\n")}`
+            )
+            .join("\n\n");
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Audience Insights for ${audience_insights_id}:\n\n${insightsText}`,
+                },
+            ],
+        };
+    }
+);
+
+server.tool(
+    "get-baselines",
+    "Retrieves available baselines, optionally filtered by country.",
+    {
+        country: z.string().optional().describe("ISO country code to filter by.")
+    },
+    async ({ country }) => {
+        let filteredBaselines = BASELINES;
+
+        // Apply country filter if provided
+        if (country) {
+            filteredBaselines = filteredBaselines.filter(
+                (baseline) => baseline.country_iso_code === country
+            );
+        }
+
+        if (filteredBaselines.length === 0) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `No baselines found for the given filters.`,
+                    },
+                ],
+            };
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(filteredBaselines, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+server.tool(
+    "get-categories",
+    "Retrieves the list of available affinity categories that can be used as the categories parameter in the compare-audience-influencers tool.",
+    {},
+    async () => {
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(CATEGORIES, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+server.tool(
+    "compare-audience-influencers",
+    `Compares the influencers of an audience with a baseline audience. The baseline is determined as follows: 
+    If the selection was the full audience and a single country represents more than 50% of the audience, that country is used as the baseline.
+    Otherwise, the Global baseline is applied. If the selection was a specific segment, the full audience is used as the baseline.
+    Each influencer comparison includes: 
+        - Affinity (%) - The level of alignment between the influencer and the audience. Baseline Affinity (%)
+        - The influencer’s affinity within the baseline audience. Uniqueness Score
+        - A measure of how distinct the influencer is within the selected audience compared to the baseline.
+    `,
+    {
+        audience_influencers_id: z.string().describe("The ID of the audience influencers."),
+        baseline_audience_influencers_id: z.string().describe("The ID of the baseline audience influencers."),
+        cursor: z.number().optional().describe("Cursor for pagination."),
+        count: z.number().optional().describe("Number of items per page (default: 200)."),
+        bio_keyword: z.string().optional().describe("Keyword to filter influencers by their biography."),
+        entity_type: z.enum(["person", "brand"]).optional().describe("Filter by entity type (person or brand)."),
+        followers_min: z.number().optional().describe("Minimum number of followers."),
+        followers_max: z.number().optional().describe("Maximum number of followers."),
+        categories: z.array(z.string()).optional().describe("Filter influencers by categories."),
+        countries: z.array(z.string()).optional().describe("Filter influencers by country ISO codes."),
+    },
+    async ({ audience_influencers_id, baseline_audience_influencers_id, cursor, count, bio_keyword, entity_type, followers_min, followers_max, categories, countries }) => {
+        const data = await compareAudienceInfluencers(
+            audience_influencers_id,
+            baseline_audience_influencers_id,
+            cursor,
+            count,
+            bio_keyword,
+            entity_type,
+            followers_min,
+            followers_max,
+            categories,
+            countries
+        );
+
+        if (!data || !data.influencers.length) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `No influencers found for comparison between ${audience_influencers_id} and ${baseline_audience_influencers_id}.`,
+                    },
+                ],
+            };
+        }
+
+        const influencersText = data.influencers
+            .map(
+                (influencer) =>
+                    `ID: ${influencer.id}\nAffinity: ${influencer.affinity}%\nBaseline Affinity: ${influencer.baseline_affinity}%\nUniqueness: ${influencer.uniqueness}%`
+            )
+            .join("\n\n");
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+server.tool(
+    "get-audience-content",
+    `Retrieves audience content engagement details for a given audience.
+
+This tool provides a detailed breakdown of the content an audience interacts with, including:
+- **Liked Content**: Popular posts, top domains, top emojis, top hashtags, top links, top media, and a word cloud.
+- **Shared Content**: Content that the audience shares, categorized similarly to liked content.
+- **Influential Content**: Content from influential accounts that impact the audience, with similar categorization.
+
+Each category contains:
+- **popularPost**: List of the most engaged posts.
+- **topDomains**: Most mentioned domains.
+- **topEmojis**: Most used emojis.
+- **topHashtags**: Most used hashtags.
+- **topLinks**: Most shared links.
+- **topMedia**: Media types shared and samples.
+- **wordcloud**: Frequently used words.`,
+    {
+        audience_content_id: z.string().describe("The ID of the audience content to retrieve."),
+    },
+    async ({ audience_content_id }) => {
+        const data = await getAudienceContent(audience_content_id);
+
+        if (!data) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `No content found for audience ${audience_content_id}.`,
+                    },
+                ],
+            };
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+
+server.prompt(
+    "audiense-demo",
+    "A prompt to extract marketing insights and audience understanding from Audiense reports through demographic, cultural, influencer, and content analysis.",
+    { reportName: z.string().describe("The name or id of the Audiense Insights report.") },
+    ({ reportName }) => ({
+      messages: [{
+        role: "user",
+        content: {
+          type: "text",
+          text: DEMO_PROMPT.replaceAll('{reportName}', reportName)
+        }
+      }]
+    })
+);
+
+server.prompt(
+    "audiense-demo2",
+    "A prompt to extract marketing insights and audience understanding from Audiense reports through demographic, cultural, influencer, and content analysis.",
+    { reportName: z.string().describe("The name or id of the Audiense Insights report.") },
+    ({ reportName }) => ({
+      messages: [{
+        role: "user",
+        content: {
+          type: "text",
+          text: DEMO_PROMPT2.replaceAll('{reportName}', reportName)
+        }
+      }]
+    })
+);
+
+server.prompt(
+    "segment-matching",
+    "A prompt to match and compare audience segments across Audiense reports, identifying similarities, unique traits, and key insights based on demographics, interests, influencers, and engagement patterns.",
+    { 
+        brand1: z.string().describe("The name or ID of the Audiense Insights report for the first brand to analyze."),
+        brand2: z.string().describe("The name or ID of the Audiense Insights report for the second brand to analyze.")
+    },
+    ({ brand1, brand2 }) => ({
+      messages: [{
+        role: "user",
+        content: {
+          type: "text",
+          text: SEGMENT_MATCHING_PROMPT
+            .replaceAll('{brand1}', brand1)
+            .replaceAll('{brand2}', brand2)
+        }
+      }]
+    })
+);
+
+/**
+ * MCP Tool: Generates a comprehensive summary of an Audiense report
+ */
+server.tool(
+    "report-summary",
+    "Generates a comprehensive summary of an Audiense report, including segment details, top insights, and influencers.",
+    {
+        report_id: z.string().describe("The ID of the intelligence report to summarize."),
+    },
+    async ({ report_id }) => {
+        const data = await generateReportSummary(report_id);
+
+        if (!data) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Failed to generate summary for report ID: ${report_id}.`,
+                    },
+                ],
+            };
+        }
+
+        if (data.message) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: data.message,
+                    },
+                ],
+            };
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2)
+                }
+            ]
+        };
+    }
+);
+
+/**
+ * Starts the MCP server and listens for incoming requests.
+ */
+async function runServer() {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("Audiense Insights MCP Server running on stdio");
+}
+
+runServer().catch((error) => {
+    console.error("Fatal error in main():", error);
+    process.exit(1);
+});
+
+================
+File: src/test-server.ts
+================
+import { createTransport } from "@smithery/sdk/transport.js"
+
+const transport = createTransport("https://server.smithery.ai/@AudienseCo/mcp-audiense-insights", {
+  "audienseClientId": "5nsk9euk07lq5i5rsmnpo3u7l2",
+  "audienseClientSecret": "8aehbt18cteuuaind3bradup9s336nqdsic5lfltiklobsrpen9",
+  "twitterBearerToken": "AAAAAAAAAAAAAAAAAAAAAHKEyQEAAAAA%2BDYEww0viAgc6nB%2Fj7kKIFN0aRE%3DcMTvdJlPvXLXH80qdCOTL27QPJrSu4NJVSILIe7rtUViIrSu26"
+})
+
+// Create MCP client
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+
+const client = new Client({
+	name: "Test client",
+	version: "1.0.0"
+})
+await client.connect(transport)
+
+// Use the server tools with your LLM application
+const tools = await client.listTools()
+console.log('lets got!', tools)
+if (Array.isArray(tools)) {
+    console.log(`Available tools: ${tools.map(t => t.name).join(", ")}`)
+}
+
+// Example: Call a tool
+const result = await client.callTool({ name: "get-reports" })
+
+================
+File: src/types.ts
+================
+export type AuthResponse = {
+    access_token: string;
+    expires_in: number;
+};
+
+export type IntelligenceReport = {
+    id: string;
+    title: string;
+    segmentation_type: string;
+    created_at: string;
+    status: string;
+};
+
+export type IntelligenceReportsResponse = {
+    reports: IntelligenceReport[];
+    cursor: {
+        cursor: {
+            next: number;
+            prev: number;
+        };
+    };
+};
+
+export type ReportInfoResponse = {
+    title: string;
+    status: string;
+    segmentation_type: string;
+    full_audience?: { 
+        size?: number;
+        audience_influencers_id?: string;
+    };
+    segments?: { 
+        id: string; 
+        title: string; 
+        size: number;
+        audience_influencers_id?: string;
+    }[];
+    audience_influencers_id?: string;
+    public: boolean;
+    links?: { app?: string; public?: string };
+    errors?: string[];
+};
+
+export type InsightValue = {
+    key: string;
+    value: number;
+};
+
+export type SegmentSummary = {
+    id: string;
+    title: string;
+    size: number;
+    insights: Record<string, InsightValue[] | null>;
+    influencers: any[] | null;
+};
+
+export type ReportSummaryResponse = {
+    id?: string;
+    title: string;
+    status?: string;
+    segmentation_type?: string;
+    full_audience_size?: number;
+    segments?: SegmentSummary[];
+    links?: { app?: string; public?: string };
+    message?: string;
+};
+
+================
+File: .gitignore
+================
+node_modules/
+build/
+.DS_Store
+
+================
+File: Dockerfile
+================
+# Generated by https://smithery.ai. See: https://smithery.ai/docs/config#dockerfile
+# Use an official Node.js runtime as the base image
+FROM node:18-alpine AS builder
+
+# Set the working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json for installing dependencies
+COPY package.json package-lock.json ./
+
+# Install dependencies (ignoring scripts to avoid running them yet)
+RUN npm install --ignore-scripts
+
+# Copy the rest of the application code
+COPY src ./src
+COPY tsconfig.json ./
+
+# Build the TypeScript code
+RUN npm run build
+
+# Use a lighter weight image for running the application
+FROM node:18-alpine
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the built code and node_modules from the builder stage
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# Environment variables (should be replaced with actual credentials in production)
+ENV AUDIENSE_CLIENT_ID=your_client_id_here
+ENV AUDIENSE_CLIENT_SECRET=your_client_secret_here
+ENV TWITTER_BEARER_TOKEN=your_token_here
+
+# Run the application
+CMD ["node", "build/index.js"]
+
+================
+File: jest.config.js
+================
+export default {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
+  },
+  // Exclude the build directory from test paths
+  testPathIgnorePatterns: ['/node_modules/', '/build/'],
+};
+
+================
+File: package.json
+================
+{
+  "name": "mcp-audiense-insights",
+  "version": "0.2.0",
+  "type": "module",
+  "bin": {
+    "audiense-insights": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "test": "jest"
+  },
+  "files": [
+    "build"
+  ],
+  "keywords": [],
+  "author": "",
+  "license": "APACHE 2.0",
+  "description": "",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "@smithery/sdk": "^1.0.2",
+    "base-64": "^1.0.0",
+    "dotenv": "^16.4.7",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/base-64": "^1.0.2",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.12.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.6",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+
+================
+File: README.md
+================
+# 🏆 Audiense Insights MCP Server
+[![smithery badge](https://smithery.ai/badge/@AudienseCo/mcp-audiense-insights)](https://smithery.ai/server/@AudienseCo/mcp-audiense-insights)
+
+This server, based on the [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol), allows **Claude** or any other MCP-compatible client to interact with your [Audiense Insights](https://www.audiense.com/) account. It extracts **marketing insights and audience analysis** from Audiense reports, covering **demographic, cultural, influencer, and content engagement analysis**.
+
+<a href="https://glama.ai/mcp/servers/xz11vmv38c">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/xz11vmv38c/badge" /></a>
+
+---
+
+## 🚀 Prerequisites
+
+Before using this server, ensure you have:
+
+- **Node.js** (v18 or higher)
+- **Claude Desktop App**
+- **Audiense Insights Account** with API credentials
+- **X/Twitter API Bearer Token** _(optional, for enriched influencer data)_
+
+---
+
+## Installing via Smithery
+
+To install Audiense Insights Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@AudienseCo/mcp-audiense-insights):
+
+```bash
+npx -y @smithery/cli@latest install @AudienseCo/mcp-audiense-insights --client claude
+```
+
+## ⚙️ Configuring Claude Desktop
+
+1. Open the configuration file for Claude Desktop:
+
+   - **MacOS:**
+     ```bash
+     code ~/Library/Application\ Support/Claude/claude_desktop_config.json
+     ```
+   - **Windows:**
+     ```bash
+     code %AppData%\Claude\claude_desktop_config.json
+     ```
+
+2. Add or update the following configuration:
+
+   ```json
+   "mcpServers": {
+     "audiense-insights": {
+       "command": "/opt/homebrew/bin/node",
+       "args": [
+         "/ABSOLUTE/PATH/TO/YOUR/build/index.js"
+       ],
+       "env": {
+         "AUDIENSE_CLIENT_ID": "your_client_id_here",
+         "AUDIENSE_CLIENT_SECRET": "your_client_secret_here",
+         "TWITTER_BEARER_TOKEN": "your_token_here"
+       }          
+     }     
+   }
+
+3.	Save the file and restart Claude Desktop.
+
+## 🛠️ Available Tools
+### 📌 `get-reports`
+**Description**: Retrieves the list of **Audiense insights reports** owned by the authenticated user.
+
+- **Parameters**: _None_
+- **Response**:
+  - List of reports in JSON format.
+
+---
+
+### 📌 `get-report-info`
+**Description**: Fetches detailed information about a **specific intelligence report**, including:
+  - Status
+  - Segmentation type
+  - Audience size
+  - Segments
+  - Access links
+
+- **Parameters**:
+  - `report_id` _(string)_: The ID of the intelligence report.
+
+- **Response**:
+  - Full report details in JSON format.
+  - If the report is still processing, returns a message indicating the pending status.
+
+---
+
+### 📌 `get-audience-insights`
+**Description**: Retrieves **aggregated insights** for a given **audience**, including:
+  - **Demographics**: Gender, age, country.
+  - **Behavioral traits**: Active hours, platform usage.
+  - **Psychographics**: Personality traits, interests.
+  - **Socioeconomic factors**: Income, education status.
+
+- **Parameters**:
+  - `audience_insights_id` _(string)_: The ID of the audience insights.
+  - `insights` _(array of strings, optional)_: List of specific insight names to filter.
+
+- **Response**:
+  - Insights formatted as a structured text list.
+
+---
+
+### 📌 `get-baselines`
+**Description**: Retrieves available **baseline audiences**, optionally filtered by **country**.
+
+- **Parameters**:
+  - `country` _(string, optional)_: ISO country code to filter by.
+
+- **Response**:
+  - List of baseline audiences in JSON format.
+
+---
+
+### 📌 `get-categories`
+**Description**: Retrieves the list of **available affinity categories** that can be used in influencer comparisons.
+
+- **Parameters**: _None_
+- **Response**:
+  - List of categories in JSON format.
+
+---
+
+### 📌 `compare-audience-influencers`
+**Description**: Compares **influencers** of a given audience with a **baseline audience**. The baseline is determined as follows:
+  - If a **single country** represents more than 50% of the audience, that country is used as the baseline.
+  - Otherwise, the **global baseline** is used.
+  - If a **specific segment** is selected, the full audience is used as the baseline.
+
+Each influencer comparison includes:
+  - **Affinity (%)** – How well the influencer aligns with the audience.
+  - **Baseline Affinity (%)** – The influencer’s affinity within the baseline audience.
+  - **Uniqueness Score** – How distinct the influencer is compared to the baseline.
+
+- **Parameters**:
+  - `audience_influencers_id` _(string)_: ID of the audience influencers.
+  - `baseline_audience_influencers_id` _(string)_: ID of the baseline audience influencers.
+  - `cursor` _(number, optional)_: Pagination cursor.
+  - `count` _(number, optional)_: Number of items per page (default: 200).
+  - `bio_keyword` _(string, optional)_: Filter influencers by **bio keyword**.
+  - `entity_type` _(enum: `person` | `brand`, optional)_: Filter by entity type.
+  - `followers_min` _(number, optional)_: Minimum number of followers.
+  - `followers_max` _(number, optional)_: Maximum number of followers.
+  - `categories` _(array of strings, optional)_: Filter influencers by **categories**.
+  - `countries` _(array of strings, optional)_: Filter influencers by **country ISO codes**.
+
+- **Response**:
+  - List of influencers with **affinity scores, baseline comparison, and uniqueness scores** in JSON format.
+
+---
+
+### 📌 `get-audience-content`
+**Description**: Retrieves **audience content engagement details**, including:
+  - **Liked Content**: Most popular posts, domains, emojis, hashtags, links, media, and a word cloud.
+  - **Shared Content**: Most shared content categorized similarly.
+  - **Influential Content**: Content from influential accounts.
+
+Each category contains:
+  - `popularPost`: Most engaged posts.
+  - `topDomains`: Most mentioned domains.
+  - `topEmojis`: Most used emojis.
+  - `topHashtags`: Most used hashtags.
+  - `topLinks`: Most shared links.
+  - `topMedia`: Shared media.
+  - `wordcloud`: Most frequently used words.
+
+- **Parameters**:
+  - `audience_content_id` _(string)_: The ID of the audience content.
+
+- **Response**:
+  - Content engagement data in JSON format.
+
+---
+
+### 📌 `report-summary`
+**Description**: Generates a **comprehensive summary** of an Audiense report, including:
+  - Report metadata (title, segmentation type)
+  - Full audience size
+  - Detailed segment information
+  - **Top insights** for each segment (bio keywords, demographics, interests)
+  - **Top influencers** for each segment with comparison metrics
+
+- **Parameters**:
+  - `report_id` _(string)_: The ID of the intelligence report to summarize.
+
+- **Response**:
+  - Complete report summary in JSON format with structured data for each segment
+  - For pending reports: Status message indicating the report is still processing
+  - For reports without segments: Message indicating there are no segments to analyze
+
+## 💡 Predefined Prompts
+
+This server includes a preconfigured prompts
+- `audiense-demo`: Helps analyze Audiense reports interactively.
+- `segment-matching`: A prompt to match and compare audience segments across Audiense reports, identifying similarities, unique traits, and key insights based on demographics, interests, influencers, and engagement patterns.
+
+
+**Usage:**
+- Accepts a reportName argument to find the most relevant report.
+- If an ID is provided, it searches by report ID instead.
+
+Use case: Structured guidance for audience analysis.
+
+## 🛠️ Troubleshooting
+
+### Tools Not Appearing in Claude
+1.	Check Claude Desktop logs:
+
+```
+tail -f ~/Library/Logs/Claude/mcp*.log
+```
+2.	Verify environment variables are set correctly.
+3.	Ensure the absolute path to index.js is correct.
+
+### Authentication Issues
+- Double-check OAuth credentials.
+- Ensure the refresh token is still valid.
+- Verify that the required API scopes are enabled.
+
+## 📜 Viewing Logs
+
+To check server logs:
+
+### For MacOS/Linux:
+```
+tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
+```
+
+### For Windows:
+```
+Get-Content -Path "$env:AppData\Claude\Logs\mcp*.log" -Wait -Tail 20
+```
+
+## 🔐 Security Considerations
+
+- Keep API credentials secure – never expose them in public repositories.
+- Use environment variables to manage sensitive data.
+
+## 📄 License
+
+This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
+
+================
+File: smithery.yaml
+================
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - audienseClientId
+      - audienseClientSecret
+    properties:
+      audienseClientId:
+        type: string
+        description: Client ID for the Audiense API.
+      audienseClientSecret:
+        type: string
+        description: Client Secret for the Audiense API.
+      twitterBearerToken:
+        type: string
+        description: Bearer Token for the Twitter API (optional).
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'node', args: ['build/index.js'], env: { AUDIENSE_CLIENT_ID: config.audienseClientId, AUDIENSE_CLIENT_SECRET: config.audienseClientSecret, TWITTER_BEARER_TOKEN: config.twitterBearerToken || '' } })
+
+================
+File: tsconfig.json
+================
+{
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "NodeNext",
+      "moduleResolution": "NodeNext",
+      "outDir": "./build",
+      "rootDir": "./src",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules"]
+  }
+
+
+
+================================================================
+End of Codebase
+================================================================
