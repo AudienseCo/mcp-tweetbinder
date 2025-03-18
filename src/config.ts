@@ -1,8 +1,8 @@
 export const TWEETBINDER_API_BASE = "https://api.tweetbinder.com";
 
-// API key for TweetBinder API authentication
-export const TWEETBINDER_API_KEY = process.env.TWEETBINDER_API_KEY || "";
+// Bearer token for TweetBinder API authentication
+export const TWEETBINDER_API_TOKEN = process.env.TWEETBINDER_API_TOKEN || "";
 
-if (!TWEETBINDER_API_KEY) {
-    console.error("Missing TweetBinder API key. Check your environment variables.");
+if (!TWEETBINDER_API_TOKEN) {
+    console.error("Missing TweetBinder API token. Check your environment variables.");
 } 

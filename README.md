@@ -22,10 +22,10 @@ This is a Model Context Protocol (MCP) server for the TweetBinder API, allowing 
 
 ## Configuration
 
-You need a valid TweetBinder API key to use this service. Set it in your environment:
+You need a valid TweetBinder API Bearer Token to use this service. Set it in your environment:
 
 ```bash
-export TWEETBINDER_API_KEY='your-api-key-here'
+export TWEETBINDER_API_TOKEN='your-bearer-token-here'
 ```
 
 ## Usage with Claude Desktop
@@ -51,7 +51,7 @@ export TWEETBINDER_API_KEY='your-api-key-here'
       "/absolute/path/to/build/index.js"
     ],
     "env": {
-      "TWEETBINDER_API_KEY": "your-api-key-here"
+      "TWEETBINDER_API_TOKEN": "your-bearer-token-here"
     }
   }
 }
@@ -71,6 +71,30 @@ Retrieves analytics for a specific hashtag.
 
 - **Response**:
   - Analysis of the hashtag including engagement metrics, top contributors, and more.
+
+### `create-twitter-report`
+
+Creates a new report that analyzes Twitter/X data based on a search query.
+
+- **Parameters**:
+  - `query` (string): The search query for Twitter data. Can include operators like AND, OR, hashtags, mentions, etc.
+  - `limit` (number, optional): Maximum number of tweets to retrieve (up to 50,000).
+  - `startDate` (number, optional): Start date as Unix timestamp (seconds since epoch).
+  - `endDate` (number, optional): End date as Unix timestamp (seconds since epoch).
+  - `reportType` (enum, optional): Type of report to create: "7-day" for last week or "historical" for all time. Default: "7-day".
+
+- **Response**:
+  - Report ID and status information for the created report.
+  - Instructions for checking report status and retrieving statistics.
+
+**Query Syntax Examples:**
+- `#apple`: Tweets containing the hashtag #apple
+- `apple lang:en`: English tweets containing "apple"
+- `(#apple OR #iphone) -#android`: Tweets with #apple or #iphone but not #android
+- `@apple`: Tweets mentioning @apple
+- `from:apple`: Tweets posted by user "apple"
+
+**Note:** Reports are processed asynchronously and may take a few minutes to complete depending on the size of the query.
 
 ## License
 
