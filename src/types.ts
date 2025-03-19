@@ -163,3 +163,23 @@ export type AccountBalanceResponse = {
     error?: string;
     message?: string;
 };
+
+// Report list response
+export type ReportListResponse = {
+    reports: Array<{
+        id: string;
+        name: string;
+        status: 'Generated' | 'Waiting' | 'Outdated' | 'Deleted' | 'Archived';
+        createdAt: number;
+        updatedAt: number;
+        type: string;
+        source: string;
+        query?: {
+            raw: string;
+            [key: string]: any;
+        };
+        [key: string]: any;
+    }>;
+    error?: string;
+    message?: string;
+};

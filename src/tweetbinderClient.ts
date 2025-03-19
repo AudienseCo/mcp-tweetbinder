@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import { TWEETBINDER_API_BASE, TWEETBINDER_API_TOKEN } from "./config.js";
-import { CreateReportRequest, CreateReportResponse, ReportStatusResponse, ReportStatsResponse, AccountBalanceResponse, TwitterCountResponse } from "./types.js";
+import { CreateReportRequest, CreateReportResponse, ReportStatusResponse, ReportStatsResponse, AccountBalanceResponse, TwitterCountResponse, ReportListResponse } from "./types.js";
 
 /**
  * Makes a request to the TweetBinder API.
@@ -116,4 +116,17 @@ export async function createTwitterCount(
     type: "7-day" | "historical" = "7-day"
 ): Promise<TwitterCountResponse | null> {
     return makeTweetBinderPostRequest<TwitterCountResponse>(`/reports/twitter-count/${type}`, query);
+}
+
+/**
+ * Gets a list of all reports with optional sorting
+ * @param order Optional sorting parameter in the format of "field|direction" (e.g., "createdAt|-1")
+ * @returns List of reports sorted according to the order parameter
+ */
+export async function getReportsList(order?: string): Promise<ReportListResponse | null> {
+    const params: Record<string, string> = {};
+    if (order) {
+        params.order = order;
+    }
+    return makeTweetBinderRequest<ReportListResponse>('/reports', params);
 }

@@ -12,6 +12,7 @@ This is a Model Context Protocol (MCP) server for the TweetBinder API, allowing 
 - Retrieve detailed report statistics
 - Get account balance and quota information
 - Count tweets matching specific queries
+- List and manage your TweetBinder reports
 
 ## Installation
 
@@ -105,6 +106,24 @@ Creates a new report that counts tweets matching a search query.
     - `status`: The status of the report creation
     - `resourceId`: The ID of the created report
     - `error`/`message`: Any error or status messages
+
+### `list-reports`
+
+Retrieves a list of all your TweetBinder reports with sorting capabilities.
+
+- **Parameters**:
+  - `order` (string, optional): Sorting parameter in the format 'field|direction'. Example: 'createdAt|-1' for newest first, 'createdAt|1' for oldest first.
+
+- **Response**:
+  - Raw JSON response containing an array of reports with details for each:
+    - `id`: Report ID
+    - `name`: Report name
+    - `status`: Current status (Generated, Waiting, etc.)
+    - `createdAt`: Creation timestamp
+    - `updatedAt`: Last update timestamp
+    - `type`: Report type
+    - `source`: Report source
+    - `query`: Original search query
 
 **Query Syntax Examples:**
 - `#apple`: Tweets containing the hashtag #apple

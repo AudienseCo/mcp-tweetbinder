@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { createReport, getReportStatus, getReportStats, getAccountBalances, createTwitterCount } from "./tweetbinderClient.js";
+import { createReport, getReportStatus, getReportStats, getAccountBalances, createTwitterCount, getReportsList } from "./tweetbinderClient.js";
 
 // MCP Server instance
 const server = new McpServer({
@@ -137,6 +137,30 @@ server.tool(
         };
 
         const data = await createTwitterCount(requestBody, reportType || "7-day");
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+/**
+ * MCP Tool: Get Reports List
+ * Retrieves a list of all reports with optional sorting
+ */
+server.tool(
+    "list-reports",
+    "Retrieves a list of all your TweetBinder reports. Reports can be sorted by different fields. Returns raw JSON response.",
+    {
+        order: z.string().optional().describe("Optional sorting parameter in the format 'field|direction'. Example: 'createdAt|-1' for newest first, 'createdAt|1' for oldest first.")
+    },
+    async ({ order }) => {
+        const data = await getReportsList(order);
 
         return {
             content: [
