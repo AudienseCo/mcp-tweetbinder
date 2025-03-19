@@ -1,6 +1,6 @@
-# TweetBinder MCP Server
+# TweetBinder by Audiense MCP Server
 
-This is a Model Context Protocol (MCP) server for the TweetBinder API, allowing Claude and other MCP-compatible AI models to access TweetBinder analytics data.
+This is a [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) server for the [TweetBinder by Audiense](https://www.tweetbinder.com/) API, allowing **Claude** and other MCP-compatible AI models to access TweetBinder by Audiense analytics data.
 
 ## Features
 
@@ -16,6 +16,11 @@ This is a Model Context Protocol (MCP) server for the TweetBinder API, allowing 
 - Access tweet content and user information from reports
 
 ## Installation
+
+### Prerequisites
+- **Node.js** (v18 or higher)
+- **Claude Desktop App**
+- **TweetBinder by Audiense** account with API credentials
 
 1. Clone this repository
 2. Install dependencies:
@@ -52,7 +57,7 @@ export TWEETBINDER_API_TOKEN='your-bearer-token-here'
 
 ```json
 "mcpServers": {
-  "tweetbinder-insights": {
+  "tweetbinder": {
     "command": "node",
     "args": [
       "/absolute/path/to/build/index.js"
@@ -67,17 +72,6 @@ export TWEETBINDER_API_TOKEN='your-bearer-token-here'
 3. Restart Claude Desktop
 
 ## Available Tools
-
-### `analyze-hashtag`
-
-Retrieves analytics for a specific hashtag.
-
-- **Parameters**:
-  - `hashtag` (string): The hashtag to analyze (without the # symbol)
-  - `days` (number, optional): Number of days to analyze (default: 7)
-
-- **Response**:
-  - Analysis of the hashtag including engagement metrics, top contributors, and more.
 
 ### `create-twitter-report`
 
@@ -227,6 +221,41 @@ Retrieves information about your account's credit balance, usage, and remaining 
       - `total`: Total quota
   - Any error or status messages
 
-## License
+## Troubleshooting
 
-Apache 2.0 
+### Tools Not Appearing in Claude
+1.	Check Claude Desktop logs:
+
+```
+tail -f ~/Library/Logs/Claude/mcp*.log
+```
+2.	Verify environment variables are set correctly.
+3.	Ensure the absolute path to index.js is correct.
+
+### Authentication Issues
+- Double-check credentials.
+- Ensure the refresh token is still valid.
+- Verify that the required API scopes are enabled and that you have enough credits.
+
+## Viewing Logs
+
+To check server logs:
+
+### For MacOS/Linux:
+```
+tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
+```
+
+### For Windows:
+```
+Get-Content -Path "$env:AppData\Claude\Logs\mcp*.log" -Wait -Tail 20
+```
+
+## Security Considerations
+
+- Keep API credentials secure – never expose them in public repositories.
+- Use environment variables to manage sensitive data.
+
+## 📄 License
+
+This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
