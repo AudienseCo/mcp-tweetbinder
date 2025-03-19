@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import { TWEETBINDER_API_BASE, TWEETBINDER_API_TOKEN } from "./config.js";
-import { CreateReportRequest, CreateReportResponse, ReportStatusResponse, ReportStatsResponse } from "./types.js";
+import { CreateReportRequest, CreateReportResponse, ReportStatusResponse, ReportStatsResponse, AccountBalanceResponse } from "./types.js";
 
 /**
  * Makes a request to the TweetBinder API.
@@ -95,4 +95,12 @@ export async function getReportStatus(reportId: string): Promise<ReportStatusRes
  */
 export async function getReportStats(reportId: string): Promise<ReportStatsResponse | null> {
     return makeTweetBinderRequest<ReportStatsResponse>(`/reports/${reportId}/stats`);
+}
+
+/**
+ * Gets the current account balances and quota information
+ * @returns Information about account credits, usage, and remaining quota
+ */
+export async function getAccountBalances(): Promise<AccountBalanceResponse | null> {
+    return makeTweetBinderRequest<AccountBalanceResponse>('/me/balances');
 }

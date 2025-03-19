@@ -7,6 +7,10 @@ This is a Model Context Protocol (MCP) server for the TweetBinder API, allowing 
 - Access TweetBinder analytics directly from Claude
 - Analyze hashtags, users, and conversations on Twitter/X
 - Get engagement metrics, sentiment analysis, and more
+- Create Twitter reports with custom search queries
+- Check report generation status
+- Retrieve detailed report statistics
+- Get account balance and quota information
 
 ## Installation
 
@@ -131,6 +135,28 @@ Retrieves comprehensive statistics and analytics for a TweetBinder report.
     - **Frequently Used Hashtags**: Common hashtags used in the conversation.
 
 **Note:** The report must have "Generated" status before statistics can be retrieved. Use the `get-report-status` tool to check if a report is ready.
+
+### `get-account-balances`
+
+Retrieves information about your account's credit balance, usage, and remaining quota.
+
+- **Parameters**:
+  - None
+
+- **Returns**:
+  - Raw JSON response containing:
+    - `total`: Total credits available
+    - `used`: Credits used
+    - `available`: Credits currently available
+    - `discount`: Any applicable discount
+    - `remainingReports`: Number of reports remaining
+    - `quota`: Quota information including:
+      - `startedAt`: Quota period start date
+      - `finishedAt`: Quota period end date
+      - `remaining`: Remaining quota
+      - `used`: Used quota
+      - `total`: Total quota
+  - Any error or status messages
 
 ## License
 

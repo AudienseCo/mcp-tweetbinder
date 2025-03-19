@@ -137,3 +137,21 @@ export type ReportStatsResponse = {
     error?: string;
     message?: string;
 };
+
+// Account balance response
+export type AccountBalanceResponse = {
+    total: number;
+    used: number;
+    available: number;
+    discount: number;
+    remainingReports: number;
+    quota: {
+        startedAt: string;
+        finishedAt: string;
+        remaining: number;
+        used: number;
+        total: number;
+    };
+    error?: string;
+    message?: string;
+};

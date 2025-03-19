@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { createReport, getReportStatus, getReportStats } from "./tweetbinderClient.js";
+import { createReport, getReportStatus, getReportStats, getAccountBalances } from "./tweetbinderClient.js";
 
 // MCP Server instance
 const server = new McpServer({
@@ -84,6 +84,28 @@ server.tool(
     },
     async ({ reportId }) => {
         const data = await getReportStats(reportId);
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+/**
+ * MCP Tool: Get Account Balances
+ * Retrieves current account balance and quota information
+ */
+server.tool(
+    "get-account-balances",
+    "Retrieves information about your account's credit balance, usage, and remaining quota. Returns raw JSON response.",
+    {},
+    async () => {
+        const data = await getAccountBalances();
 
         return {
             content: [
