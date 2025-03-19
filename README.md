@@ -1,4 +1,5 @@
 # TweetBinder by Audiense MCP Server
+[![smithery badge](https://smithery.ai/badge/@AudienseCo/mcp-tweetbinder)](https://smithery.ai/server/@AudienseCo/mcp-tweetbinder)
 
 This is a [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) server for the [TweetBinder by Audiense](https://www.tweetbinder.com/) API, allowing **Claude** and other MCP-compatible AI models to access TweetBinder by Audiense analytics data.
 
@@ -16,6 +17,14 @@ This is a [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol
 - Access tweet content and user information from reports
 
 ## Installation
+
+### Installing via Smithery
+
+To install mcp-tweetbinder for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@AudienseCo/mcp-tweetbinder):
+
+```bash
+npx -y @smithery/cli install @AudienseCo/mcp-tweetbinder --client claude
+```
 
 ### Prerequisites
 - **Node.js** (v18 or higher)
