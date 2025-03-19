@@ -26,6 +26,8 @@ To install mcp-tweetbinder for Claude Desktop automatically via [Smithery](https
 npx -y @smithery/cli install @AudienseCo/mcp-tweetbinder --client claude
 ```
 
+## Manual Configuration
+
 ### Prerequisites
 - **Node.js** (v18 or higher)
 - **Claude Desktop App**
@@ -40,8 +42,6 @@ npx -y @smithery/cli install @AudienseCo/mcp-tweetbinder --client claude
    ```bash
    npm run build
    ```
-
-## Configuration
 
 You need a valid TweetBinder API Bearer Token to use this service. Set it in your environment:
 
