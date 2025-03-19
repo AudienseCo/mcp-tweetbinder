@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import { TWEETBINDER_API_BASE, TWEETBINDER_API_TOKEN } from "./config.js";
-import { CreateReportRequest, CreateReportResponse, ReportStatusResponse, ReportStatsResponse, AccountBalanceResponse, TwitterCountResponse, ReportListResponse } from "./types.js";
+import { CreateReportRequest, CreateReportResponse, ReportStatusResponse, ReportStatsResponse, AccountBalanceResponse, TwitterCountResponse, ReportListResponse, ReportTranscriptResponse } from "./types.js";
 
 /**
  * Makes a request to the TweetBinder API.
@@ -129,4 +129,26 @@ export async function getReportsList(order?: string): Promise<ReportListResponse
         params.order = order;
     }
     return makeTweetBinderRequest<ReportListResponse>('/reports', params);
+}
+
+/**
+ * Gets the content (transcript) of a report
+ * @param reportId The ID of the report
+ * @param type The type of content to retrieve ('tweets' or 'users')
+ * @param filters Optional filtering parameters for pagination and sorting
+ * @returns The tweets or users from the report matching the filters
+ */
+export async function getReportTranscript(
+    reportId: string,
+    type: 'tweets' | 'users',
+    filters: Record<string, string | number> = {}
+): Promise<ReportTranscriptResponse | null> {
+    const params: Record<string, string> = {};
+    
+    // Convert filters to string parameters
+    Object.entries(filters).forEach(([key, value]) => {
+        params[key] = String(value);
+    });
+    
+    return makeTweetBinderRequest<ReportTranscriptResponse>(`/reports/${reportId}/transcript/${type}`, params);
 }

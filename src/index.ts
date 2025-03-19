@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { createReport, getReportStatus, getReportStats, getAccountBalances, createTwitterCount, getReportsList } from "./tweetbinderClient.js";
+import { createReport, getReportStatus, getReportStats, getAccountBalances, createTwitterCount, getReportsList, getReportTranscript } from "./tweetbinderClient.js";
 
 // MCP Server instance
 const server = new McpServer({
@@ -161,6 +161,73 @@ server.tool(
     },
     async ({ order }) => {
         const data = await getReportsList(order);
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+/**
+ * MCP Tool: Get Report Content
+ * Retrieves the content (tweets or users) of a report
+ */
+server.tool(
+    "get-report-content",
+    "Retrieves the content (tweets or users) of a TweetBinder report. The report must be in 'Generated' status. Returns raw JSON response.",
+    {
+        reportId: z.string().describe("The ID of the report to retrieve content for."),
+        contentType: z.enum(["tweets", "users"]).describe("The type of content to retrieve: 'tweets' for tweet IDs or 'users' for user IDs."),
+        page: z.number().optional().describe("Page number for pagination. Starts at 1."),
+        perPage: z.number().optional().describe("Number of items per page (default varies by endpoint)."),
+        sortBy: z.string().optional().describe("Field to sort by (e.g., 'createdAt', 'counts.favorites')."),
+        sortDirection: z.enum(["1", "-1"]).optional().describe("Sort direction: '1' for ascending, '-1' for descending."),
+        filter: z.string().optional().describe("JSON string with filter criteria. Example: '{\"counts.favorites\":{\"$gt\":10}}'")
+    },
+    async ({ reportId, contentType, page, perPage, sortBy, sortDirection, filter }) => {
+        // Build filters object
+        const filters: Record<string, string | number> = {};
+        
+        if (page !== undefined) {
+            filters.page = page;
+        }
+        
+        if (perPage !== undefined) {
+            filters.perPage = perPage;
+        }
+        
+        if (sortBy && sortDirection) {
+            filters.sort = `${sortBy}|${sortDirection}`;
+        }
+        
+        if (filter) {
+            try {
+                // Parse the filter string and convert it to the proper format
+                const filterObj = JSON.parse(filter);
+                Object.entries(filterObj).forEach(([key, value]) => {
+                    filters[`filter[${key}]`] = JSON.stringify(value);
+                });
+            } catch (error) {
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                error: "Invalid filter JSON string",
+                                message: "The filter parameter must be a valid JSON string"
+                            }, null, 2),
+                        },
+                    ],
+                };
+            }
+        }
+        
+        const data = await getReportTranscript(reportId, contentType, filters);
 
         return {
             content: [

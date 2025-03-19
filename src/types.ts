@@ -183,3 +183,81 @@ export type ReportListResponse = {
     error?: string;
     message?: string;
 };
+
+// Tweet object in transcript response
+export type TweetObject = {
+    _id: string;
+    conversationId?: string;
+    counts: {
+        textLength: number;
+        retweets: number;
+        totalRetweets: number;
+        favorites: number;
+        hashtags: number;
+        images: number;
+        links: number;
+        linksAndImages: number;
+        mentions: number;
+        quotes: number;
+        impressions: number;
+        totalReplies: number;
+        bookmarks: number;
+        originals: number;
+        clears: number;
+        replies: number;
+        userValue: number;
+        tweetValue: number;
+    };
+    createdAt: number;
+    hashtags: string[];
+    images: string[];
+    inReplyToId?: string;
+    lang?: string;
+    links: string[];
+    mentions: string[];
+    retweeted?: TweetObject;
+    user: {
+        id: string;
+        name: string;
+        alias: string;
+        picture: string;
+        followers: number;
+        following: number;
+        verified: boolean;
+        age: number;
+        gender: number;
+        value: number;
+    };
+    sentiment: {
+        vote: 'positive' | 'negative' | 'neutral' | 'undefined';
+    };
+    [key: string]: any;
+};
+
+// User object in transcript response
+export type UserObject = {
+    id: string;
+    name: string;
+    alias: string;
+    picture: string;
+    followers: number;
+    following: number;
+    verified: boolean;
+    age: number;
+    gender: number;
+    value: number;
+    [key: string]: any;
+};
+
+// Report transcript response
+export type ReportTranscriptResponse = {
+    items: TweetObject[] | UserObject[];
+    pagination: {
+        total: number;
+        page: number;
+        perPage: number;
+        totalPages: number;
+    };
+    error?: string;
+    message?: string;
+};

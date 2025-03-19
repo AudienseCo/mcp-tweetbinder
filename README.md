@@ -13,6 +13,7 @@ This is a Model Context Protocol (MCP) server for the TweetBinder API, allowing 
 - Get account balance and quota information
 - Count tweets matching specific queries
 - List and manage your TweetBinder reports
+- Access tweet content and user information from reports
 
 ## Installation
 
@@ -124,6 +125,40 @@ Retrieves a list of all your TweetBinder reports with sorting capabilities.
     - `type`: Report type
     - `source`: Report source
     - `query`: Original search query
+
+### `get-report-content`
+
+Retrieves the actual tweets or users from a generated report with advanced filtering and pagination.
+
+- **Parameters**:
+  - `reportId` (string): The ID of the report to retrieve content for.
+  - `contentType` (enum): The type of content to retrieve: 'tweets' for tweet data or 'users' for user data.
+  - `page` (number, optional): Page number for pagination. Starts at 1.
+  - `perPage` (number, optional): Number of items per page.
+  - `sortBy` (string, optional): Field to sort by (e.g., 'createdAt', 'counts.favorites').
+  - `sortDirection` (enum, optional): Sort direction: '1' for ascending, '-1' for descending.
+  - `filter` (string, optional): JSON string with filter criteria. Example: '{"counts.favorites":{"$gt":10}}'
+
+- **Response**:
+  - Raw JSON response containing:
+    - `items`: Array of tweet or user objects
+    - `pagination`: Information about total items and pages
+  
+  When requesting tweets, detailed information is returned, including:
+  - Tweet ID, text, creation date, language
+  - Author details (name, username, followers, etc.)
+  - Engagement metrics (retweets, likes, replies, etc.)
+  - Media content (hashtags, images, links)
+  - Sentiment analysis
+
+  When requesting users, information includes:
+  - User ID, name, username
+  - Profile picture URL
+  - Follower and following counts
+  - Verification status
+  - User value and other metrics
+
+**Note:** Report must be in 'Generated' status to access content. Use the `get-report-status` tool to check if a report is ready.
 
 **Query Syntax Examples:**
 - `#apple`: Tweets containing the hashtag #apple
