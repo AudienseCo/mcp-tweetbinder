@@ -96,6 +96,24 @@ Creates a new report that analyzes Twitter/X data based on a search query.
 
 **Note:** Reports are processed asynchronously and may take a few minutes to complete depending on the size of the query.
 
+### `get-report-status`
+
+Checks the current status of a TweetBinder report.
+
+- **Parameters**:
+  - `reportId` (string): The ID of the report to check.
+
+- **Response**:
+  - The current status of the report, which can be one of:
+    - **Generated**: The report is complete and ready to use.
+    - **Waiting**: The report is still being generated or waiting for tweets to be collected.
+    - **Outdated**: The report is being updated with new data and will be available soon.
+    - **Deleted**: The report has been deleted and is no longer available.
+    - **Archived**: The report has been archived and may be deleted soon.
+  - An explanation of what the status means and what actions are available.
+
+**Note:** You must first create a report using the `create-twitter-report` tool to get a report ID.
+
 ## License
 
 MIT 

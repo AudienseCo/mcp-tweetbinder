@@ -23,3 +23,10 @@ export type CreateReportResponse = {
     error?: string;
     message?: string;
 };
+
+// Report status response
+export type ReportStatusResponse = {
+    status: 'Generated' | 'Waiting' | 'Outdated' | 'Deleted' | 'Archived';
+    message?: string;
+    error?: string;
+};

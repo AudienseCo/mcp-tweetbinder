@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import { TWEETBINDER_API_BASE, TWEETBINDER_API_TOKEN } from "./config.js";
-import { CreateReportRequest, CreateReportResponse } from "./types.js";
+import { CreateReportRequest, CreateReportResponse, ReportStatusResponse } from "./types.js";
 
 /**
  * Makes a request to the TweetBinder API.
@@ -77,4 +77,13 @@ export async function createReport(
     type: "7-day" | "historical" = "7-day"
 ): Promise<CreateReportResponse | null> {
     return makeTweetBinderPostRequest<CreateReportResponse>(`/reports/twitter/${type}`, query);
+}
+
+/**
+ * Gets the current status of a report
+ * @param reportId The ID of the report to check
+ * @returns The status of the report (Generated, Waiting, Outdated, Deleted, or Archived)
+ */
+export async function getReportStatus(reportId: string): Promise<ReportStatusResponse | null> {
+    return makeTweetBinderRequest<ReportStatusResponse>(`/reports/${reportId}`);
 }

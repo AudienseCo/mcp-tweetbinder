@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { createReport } from "./tweetbinderClient.js";
+import { createReport, getReportStatus } from "./tweetbinderClient.js";
 
 // MCP Server instance
 const server = new McpServer({
@@ -73,6 +73,81 @@ Your report is being processed. To check the status of your report, use the 'get
 Once the report is complete, you can retrieve the statistics using the 'get-report-stats' tool.
 
 Note: Processing may take a few minutes depending on the size of your query.`,
+                },
+            ],
+        };
+    }
+);
+
+/**
+ * MCP Tool: Get Report Status
+ * Checks the current status of a report
+ */
+server.tool(
+    "get-report-status",
+    "Checks the current status of a TweetBinder report. Reports can be in various statuses: Generated (ready to use), Waiting (still collecting data), Outdated (being updated), Deleted, or Archived.",
+    {
+        reportId: z.string().describe("The ID of the report to check.")
+    },
+    async ({ reportId }) => {
+        const data = await getReportStatus(reportId);
+
+        if (!data) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Failed to retrieve status for report ID: ${reportId}. Please check the ID and try again.`,
+                    },
+                ],
+            };
+        }
+
+        if (data.error) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Error retrieving report status: ${data.error || data.message || "Unknown error"}`,
+                    },
+                ],
+            };
+        }
+
+        let statusExplanation = "";
+        switch(data.status) {
+            case "Generated":
+                statusExplanation = "The report is complete and ready to use.";
+                break;
+            case "Waiting":
+                statusExplanation = "The report is still being generated or waiting for tweets to be collected.";
+                break;
+            case "Outdated":
+                statusExplanation = "The report is being updated with new data and will be available soon.";
+                break;
+            case "Deleted":
+                statusExplanation = "The report has been deleted and is no longer available.";
+                break;
+            case "Archived":
+                statusExplanation = "The report has been archived and may be deleted soon.";
+                break;
+            default:
+                statusExplanation = "Unknown status.";
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Report ID: ${reportId}
+                    
+Status: ${data.status}
+
+${statusExplanation}
+
+${data.status === "Generated" ? "The report is ready. You can retrieve the statistics using the 'get-report-stats' tool." : 
+  data.status === "Waiting" || data.status === "Outdated" ? "The report is not ready yet. Try checking again in a few minutes." : 
+  "This report is not currently available for retrieval."}`,
                 },
             ],
         };
