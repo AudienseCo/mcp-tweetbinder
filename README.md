@@ -114,6 +114,24 @@ Checks the current status of a TweetBinder report.
 
 **Note:** You must first create a report using the `create-twitter-report` tool to get a report ID.
 
+### `get-report-stats`
+
+Retrieves comprehensive statistics and analytics for a TweetBinder report.
+
+- **Parameters**:
+  - `reportId` (string): The ID of the report to retrieve statistics for.
+
+- **Response**:
+  - A formatted summary of the report statistics including:
+    - **Overview**: Total tweets, date range, contributors, engagement, media, and links.
+    - **Engagement Metrics**: Potential reach, impressions, retweets, and likes.
+    - **Sentiment Analysis**: Overall sentiment score and interpretation.
+    - **Top Contributors**: Most active users and their tweet counts.
+    - **Popular Content**: Most retweeted posts.
+    - **Frequently Used Hashtags**: Common hashtags used in the conversation.
+
+**Note:** The report must have "Generated" status before statistics can be retrieved. Use the `get-report-status` tool to check if a report is ready.
+
 ## License
 
-MIT 
+Apache 2.0 

@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { createReport, getReportStatus } from "./tweetbinderClient.js";
+import { createReport, getReportStatus, getReportStats } from "./tweetbinderClient.js";
 
 // MCP Server instance
 const server = new McpServer({
@@ -17,7 +17,7 @@ const server = new McpServer({
  */
 server.tool(
     "create-twitter-report",
-    "Creates a new report that analyzes Twitter/X data based on a search query. The report provides statistics and tweet data.",
+    "Creates a new report that analyzes Twitter/X data based on a search query. The report provides statistics and tweet data. Returns raw JSON response.",
     {
         query: z.string().describe("The search query for Twitter data. Can include operators like AND, OR, hashtags, mentions, etc."),
         limit: z.number().optional().describe("Maximum number of tweets to retrieve (up to 50,000)."),
@@ -37,42 +37,11 @@ server.tool(
 
         const data = await createReport(requestBody, reportType || "7-day");
 
-        if (!data) {
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: "Failed to create Twitter report. Please check your query and try again.",
-                    },
-                ],
-            };
-        }
-
-        if (data.error || !data.resourceId) {
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Error creating Twitter report: ${data.error || data.message || "Unknown error"}`,
-                    },
-                ],
-            };
-        }
-
         return {
             content: [
                 {
                     type: "text",
-                    text: `Twitter report created successfully!
-                    
-Report ID: ${data.resourceId}
-
-Status: ${data.status}
-
-Your report is being processed. To check the status of your report, use the 'get-report-status' tool with this Report ID.
-Once the report is complete, you can retrieve the statistics using the 'get-report-stats' tool.
-
-Note: Processing may take a few minutes depending on the size of your query.`,
+                    text: JSON.stringify(data, null, 2),
                 },
             ],
         };
@@ -85,69 +54,42 @@ Note: Processing may take a few minutes depending on the size of your query.`,
  */
 server.tool(
     "get-report-status",
-    "Checks the current status of a TweetBinder report. Reports can be in various statuses: Generated (ready to use), Waiting (still collecting data), Outdated (being updated), Deleted, or Archived.",
+    "Checks the current status of a TweetBinder report. Returns raw JSON response.",
     {
         reportId: z.string().describe("The ID of the report to check.")
     },
     async ({ reportId }) => {
         const data = await getReportStatus(reportId);
 
-        if (!data) {
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Failed to retrieve status for report ID: ${reportId}. Please check the ID and try again.`,
-                    },
-                ],
-            };
-        }
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2),
+                },
+            ],
+        };
+    }
+);
 
-        if (data.error) {
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Error retrieving report status: ${data.error || data.message || "Unknown error"}`,
-                    },
-                ],
-            };
-        }
-
-        let statusExplanation = "";
-        switch(data.status) {
-            case "Generated":
-                statusExplanation = "The report is complete and ready to use.";
-                break;
-            case "Waiting":
-                statusExplanation = "The report is still being generated or waiting for tweets to be collected.";
-                break;
-            case "Outdated":
-                statusExplanation = "The report is being updated with new data and will be available soon.";
-                break;
-            case "Deleted":
-                statusExplanation = "The report has been deleted and is no longer available.";
-                break;
-            case "Archived":
-                statusExplanation = "The report has been archived and may be deleted soon.";
-                break;
-            default:
-                statusExplanation = "Unknown status.";
-        }
+/**
+ * MCP Tool: Get Report Statistics
+ * Retrieves detailed statistics for a generated report
+ */
+server.tool(
+    "get-report-stats",
+    "Retrieves comprehensive statistics and analytics for a TweetBinder report. The report must be in 'Generated' status to access statistics. Returns raw JSON response.",
+    {
+        reportId: z.string().describe("The ID of the report to retrieve statistics for.")
+    },
+    async ({ reportId }) => {
+        const data = await getReportStats(reportId);
 
         return {
             content: [
                 {
                     type: "text",
-                    text: `Report ID: ${reportId}
-                    
-Status: ${data.status}
-
-${statusExplanation}
-
-${data.status === "Generated" ? "The report is ready. You can retrieve the statistics using the 'get-report-stats' tool." : 
-  data.status === "Waiting" || data.status === "Outdated" ? "The report is not ready yet. Try checking again in a few minutes." : 
-  "This report is not currently available for retrieval."}`,
+                    text: JSON.stringify(data, null, 2),
                 },
             ],
         };

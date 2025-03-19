@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import { TWEETBINDER_API_BASE, TWEETBINDER_API_TOKEN } from "./config.js";
-import { CreateReportRequest, CreateReportResponse, ReportStatusResponse } from "./types.js";
+import { CreateReportRequest, CreateReportResponse, ReportStatusResponse, ReportStatsResponse } from "./types.js";
 
 /**
  * Makes a request to the TweetBinder API.
@@ -86,4 +86,13 @@ export async function createReport(
  */
 export async function getReportStatus(reportId: string): Promise<ReportStatusResponse | null> {
     return makeTweetBinderRequest<ReportStatusResponse>(`/reports/${reportId}`);
+}
+
+/**
+ * Gets the statistics of a report
+ * @param reportId The ID of the report
+ * @returns Detailed statistics about tweets, engagement, users, etc.
+ */
+export async function getReportStats(reportId: string): Promise<ReportStatsResponse | null> {
+    return makeTweetBinderRequest<ReportStatsResponse>(`/reports/${reportId}/stats`);
 }
