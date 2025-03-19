@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { createReport, getReportStatus, getReportStats, getAccountBalances } from "./tweetbinderClient.js";
+import { createReport, getReportStatus, getReportStats, getAccountBalances, createTwitterCount } from "./tweetbinderClient.js";
 
 // MCP Server instance
 const server = new McpServer({
@@ -106,6 +106,37 @@ server.tool(
     {},
     async () => {
         const data = await getAccountBalances();
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(data, null, 2),
+                },
+            ],
+        };
+    }
+);
+
+/**
+ * MCP Tool: Create Twitter Count Report
+ * Creates a new report that counts tweets matching a search query
+ */
+server.tool(
+    "create-twitter-count",
+    "Creates a new report that counts tweets matching a search query. Returns raw JSON response.",
+    {
+        query: z.string().describe("The search query for Twitter data. Can include operators like AND, OR, hashtags, mentions, etc."),
+        reportType: z.enum(["7-day", "historical"]).optional().default("7-day").describe("Type of report to create: '7-day' for last week or 'historical' for all time.")
+    },
+    async ({ query, reportType }) => {
+        const requestBody = {
+            query: {
+                raw: query
+            }
+        };
+
+        const data = await createTwitterCount(requestBody, reportType || "7-day");
 
         return {
             content: [

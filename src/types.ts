@@ -24,6 +24,14 @@ export type CreateReportResponse = {
     message?: string;
 };
 
+// Twitter count report response
+export type TwitterCountResponse = {
+    status: string;
+    resourceId?: string;
+    error?: string;
+    message?: string;
+};
+
 // Report status response
 export type ReportStatusResponse = {
     status: 'Generated' | 'Waiting' | 'Outdated' | 'Deleted' | 'Archived';

@@ -11,6 +11,7 @@ This is a Model Context Protocol (MCP) server for the TweetBinder API, allowing 
 - Check report generation status
 - Retrieve detailed report statistics
 - Get account balance and quota information
+- Count tweets matching specific queries
 
 ## Installation
 
@@ -91,6 +92,20 @@ Creates a new report that analyzes Twitter/X data based on a search query.
   - Report ID and status information for the created report.
   - Instructions for checking report status and retrieving statistics.
 
+### `create-twitter-count`
+
+Creates a new report that counts tweets matching a search query.
+
+- **Parameters**:
+  - `query` (string): The search query for Twitter data. Can include operators like AND, OR, hashtags, mentions, etc.
+  - `reportType` (enum, optional): Type of report to create: "7-day" for last week or "historical" for all time. Default: "7-day".
+
+- **Response**:
+  - Raw JSON response containing:
+    - `status`: The status of the report creation
+    - `resourceId`: The ID of the created report
+    - `error`/`message`: Any error or status messages
+
 **Query Syntax Examples:**
 - `#apple`: Tweets containing the hashtag #apple
 - `apple lang:en`: English tweets containing "apple"
@@ -98,7 +113,7 @@ Creates a new report that analyzes Twitter/X data based on a search query.
 - `@apple`: Tweets mentioning @apple
 - `from:apple`: Tweets posted by user "apple"
 
-**Note:** Reports are processed asynchronously and may take a few minutes to complete depending on the size of the query.
+**Note:** After creating the count report, use the `get-report-status` tool to check when it's ready, then use `get-report-stats` to get the actual count.
 
 ### `get-report-status`
 
@@ -116,7 +131,7 @@ Checks the current status of a TweetBinder report.
     - **Archived**: The report has been archived and may be deleted soon.
   - An explanation of what the status means and what actions are available.
 
-**Note:** You must first create a report using the `create-twitter-report` tool to get a report ID.
+**Note:** You must first create a report using the `create-twitter-report` or `create-twitter-count` tool to get a report ID.
 
 ### `get-report-stats`
 
