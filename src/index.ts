@@ -192,19 +192,19 @@ server.tool(
     async ({ reportId, contentType, page, perPage, sortBy, sortDirection, filter }) => {
         // Build filters object
         const filters: Record<string, string | number> = {};
-        
+
         if (page !== undefined) {
-            filters.page = page;
+          filters.offset = page;
         }
-        
+
         if (perPage !== undefined) {
-            filters.perPage = perPage;
+          filters.limit = perPage;
         }
-        
+
         if (sortBy && sortDirection) {
-            filters.sort = `${sortBy}|${sortDirection}`;
+          filters.sort = `${sortBy}|${sortDirection}`;
         }
-        
+
         if (filter) {
             try {
                 // Parse the filter string and convert it to the proper format
@@ -226,7 +226,7 @@ server.tool(
                 };
             }
         }
-        
+
         const data = await getReportTranscript(reportId, contentType, filters);
 
         return {
@@ -250,6 +250,6 @@ async function runServer() {
 }
 
 runServer().catch((error) => {
-    console.error("Fatal error in main():", error);
-    process.exit(1);
-}); 
+  console.error("Fatal error in main():", error);
+  process.exit(1);
+});
